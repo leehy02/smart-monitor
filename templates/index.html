@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>CBT 챗봇</title>
+</head>
+
+<body>
+    <h2>CBT 챗봇과 대화해보세요</h2>
+    <form method="POST">
+        <input name="user_input" style="width: 300px;" autocomplete="off">
+        <button type="submit">전송</button>
+    </form>
+
+    {% if response %}
+    <p><strong>챗봇:</strong> {{ response }}</p>
+    {% endif %}
+
+    {% if summary %}
+    <hr>
+    <h3>📝 상담 요약</h3>
+    <p>{{ summary }}</p>
+
+    <h4>📊 감정 강도</h4>
+    <p>{{ emotion }}</p>
+
+    <h4>🧠 인지 왜곡 분석</h4>
+    <p>{{ distortion }}</p>
+    {% endif %}
+</body>
+
+</html>

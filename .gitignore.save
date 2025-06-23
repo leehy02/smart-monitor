@@ -1,0 +1,12 @@
+# Python 캐시 파일
+__pycache__/
+*.pyc
+
+# 환경변수
+.env
+
+# 시스템 파일
+.DS_Store
+
+# VSCode
+.vscode/
