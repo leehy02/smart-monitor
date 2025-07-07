@@ -76,6 +76,10 @@ def save_distance():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@motor_control.route("/save_distance", methods=["GET"])
+def save_distance_get():
+    print(f"❌ 잘못된 GET 요청 감지 - IP: {request.remote_addr}")
+    return jsonify({"error": "GET method not allowed"}), 405
     
     
     
