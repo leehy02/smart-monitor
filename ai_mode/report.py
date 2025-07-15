@@ -20,45 +20,98 @@ def save_report():
             database="posture_test1"
         )
         cursor = posture_conn.cursor()
+        
+                # ✅ pitch 최근 10개 값 가져오기
+        cursor.execute("SELECT pitch_angle FROM pitch ORDER BY created_at DESC LIMIT 10")
+        pitch_rows = cursor.fetchall()
+        pitch_list = [row[0] for row in reversed(pitch_rows)]  # 시간순 정렬
+        pitch_avg = round(sum(pitch_list) / len(pitch_list), 2) if pitch_list else '알 수 없음'
+        pitch_sequence = ' → '.join([f"{round(p, 1)}" for p in pitch_list])
 
-        # ✅ 최신 pitch 값 조회
-        cursor.execute("SELECT pitch_angle FROM pitch ORDER BY created_at DESC LIMIT 1")
-        pitch_result = cursor.fetchone()
-        pitch = pitch_result[0] if pitch_result else '알 수 없음'
+        # ✅ distance 최근 10개 값 가져오기
+        cursor.execute("SELECT distance_cm FROM distance ORDER BY created_at DESC LIMIT 10")
+        distance_rows = cursor.fetchall()
+        distance_list = [row[0] for row in reversed(distance_rows)]  # 시간순 정렬
+        distance_avg = round(sum(distance_list) / len(distance_list), 2) if distance_list else '알 수 없음'
+        distance_sequence = ' → '.join([f"{round(d, 1)}" for d in distance_list])
+        
+        print("\n",pitch_list,pitch_avg)
+        print(distance_list,distance_avg)
+        print()
 
-        # ✅ 최신 distance 값 조회
-        cursor.execute("SELECT distance_cm FROM distance ORDER BY created_at DESC LIMIT 1")
-        distance_result = cursor.fetchone()
-        distance = distance_result[0] if distance_result else '알 수 없음'
+        # # ✅ 최신 pitch 값 조회
+        # cursor.execute("SELECT pitch_angle FROM pitch ORDER BY created_at DESC LIMIT 1")
+        # pitch_result = cursor.fetchone()
+        # pitch = pitch_result[0] if pitch_result else '알 수 없음'
 
-        print("📥 최신 pitch:", pitch)
-        print("📥 최신 distance:", distance)
+        # # ✅ 최신 distance 값 조회
+        # cursor.execute("SELECT distance_cm FROM distance ORDER BY created_at DESC LIMIT 1")
+        # distance_result = cursor.fetchone()
+        # distance = distance_result[0] if distance_result else '알 수 없음'
+
+        # print("📥 최신 pitch:", pitch)
+        # print("📥 최신 distance:", distance)
 
         # GPT에게 보낼 프롬프트 구성
         prompt = f"""
 너는 자세 분석 리포트를 생성하는 헬스 코치야.
-아래 데이터를 참고해서 제목 + 설명 형식의 리포트 항목 5개를 만들어줘.
+아래 📊 최근 자세 데이터를 참고해서 제목 + 설명 형식의 리포트 항목 5개를 만들어줘.
 
 ✅ 형식 (반드시 아래처럼 만들어야 해):
 - [제목만]
   설명 문장 (1~2문장)
 
 예시:
-- [모니터 거리 조정 필요]
+- 거리 변화 추세 분석 - [모니터 거리 조정 필요]
   사용자와 모니터의 거리가 35cm로 너무 가깝습니다. 거리를 넓히는 것이 좋습니다.
 
-- [거북목 증상 주의]
+- 목각도 평균값 기준 피드백 - [거북목 증상 주의]
   고개 숙임 각도가 높아 목과 어깨에 부담을 줄 수 있습니다. 틈틈이 스트레칭을 해주세요.
 
 📌 규칙:
 - 숫자 리스트(1., 2. 등)는 절대 쓰지 마.
 - 각 항목 앞에는 반드시 `- [제목]` 형식을 써줘.
 - 제목은 “제목: 설명” 형식이 아니라, **제목만** 써.
+- 제목은 예시 처럼 각 항목 유형 이름 - [제목이름] 이런 식으로 쓰도록해. 유형은 아래 순서를 따라줘.
 - 총 5개 항목을 만들어야 해.
 
-데이터:
-- 고개 숙임 각도(코, 어깨 랜드마크 선을 통해 측정, 목각도라고 하면될듯),(Pitch): {pitch}도
-- 사용자와 모니터 사이의 거리(distance): {distance}cm
+📌 각 항목 유형:
+규칙에서 5개의 항목을 만든다고 했잖아. 각 항목의 유형을 알려줄게
+1.목각도 변화 추세 분석
+예시:
+- [점점 고개가 더 숙여지고 있어요]	
+  최근 10초 간 목각도가 점점 낮아지고 있어 거북목 위험이 커지고 있습니다. 스트레칭을 권장해요.
+  
+2.거리 변화 추세 분석
+예시:
+- [자세 변화가 너무 급격해요]
+  거리 변화가 60cm → 40cm 등 급격히 변하고 있어 주의가 필요합니다. 자세를 안정적으로 유지해보세요.
+  
+3.목각도 평균값 기준 피드백
+예시:
+- [목 스트레칭을 꼭 해주세요]
+  최근 목각도 평균이 52도 이상으로 높습니다. 30분마다 스트레칭을 해주면 도움이 됩니다.
+   
+4.거리 평균값 기준 피드백
+예시:
+- [거리 평균이 너무 가까워요]
+  최근 사용자-모니터 평균 거리가 35cm로, 눈의 피로를 유발할 수 있습니다. 50cm 이상 유지해보세요.
+  
+5.전체적인 자세 피드백
+예시:
+- [좋은 자세 유지 중이에요]
+목각도와 거리 모두 안정적인 흐름을 보이고 있어요. 지금처럼만 유지해도 좋아요.
+
+전체적인 예시인데 이 때 우리 프로젝트에서 목각도와 거리가 좋은기준을 알려줄게.
+목각도는 50도 이상일시 정상, 미만은 거북목이라고 판단할거야.
+거리는 30~50cm는 정상, 그 미만은 가깝고 그 이상은 멀다고 판단할거야 이 기준을 기반으로 아래 데이터를 분석해서 위와 같은 리포트를 생성해주면돼.
+
+📊 최근 자세 데이터:
+- 고개 숙임 각도(Pitch) 변화: {pitch_sequence}
+- 평균 각도: {pitch_avg}도
+
+- 사용자-모니터 거리(Distance) 변화: {distance_sequence}
+- 평균 거리: {distance_avg}cm
 """
 
         # GPT 호출

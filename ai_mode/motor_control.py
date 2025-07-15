@@ -76,10 +76,10 @@ def save_distance():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-@motor_control.route("/save_distance", methods=["GET"])
-def save_distance_get():
-    print(f"❌ 잘못된 GET 요청 감지 - IP: {request.remote_addr}")
-    return jsonify({"error": "GET method not allowed"}), 405
+# @motor_control.route("/save_distance", methods=["GET"])
+# def save_distance_get():
+#     print(f"❌ 잘못된 GET 요청 감지 - IP: {request.remote_addr}")
+#     return jsonify({"error": "GET method not allowed"}), 405
     
     
     
@@ -99,13 +99,41 @@ def get_pitch():
         conn.close()
 
         if result:
-            pitch_angle = result[0]  # distance_cm 값만 반환됨
+            pitch_angle = result[0]  
+            print("📤 [Flask] get_pitch → 최신 pitch_angle:", pitch_angle)
             return jsonify({"success": True, "pitch_angle": pitch_angle})
         else:
             return jsonify({"success": False, "message": "No data found"}), 404
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    
+@motor_control.route("/get_pitch_10", methods=["GET"])
+def get_pitch_10():
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # 🔄 최근 10개 가져오기
+        cursor.execute("SELECT pitch_angle FROM pitch ORDER BY created_at DESC LIMIT 10")
+        results = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if results:
+            # 📦 튜플 리스트 → 숫자 리스트로 변환
+            pitch_list = [row[0] for row in results]
+            print("📤 [Flask] get_pitch_10 → 최신 10개 pitch_angle:", pitch_list)
+            return jsonify({"success": True, "pitch_10angle": pitch_list})
+        else:
+            return jsonify({"success": False, "message": "No data found"}), 404
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+    
+    
     
 @motor_control.route("/get_distance",methods=["GET"])
 def get_distance():
@@ -121,7 +149,33 @@ def get_distance():
 
         if result:
             distance_cm = result[0]  # distance_cm 값만 반환됨
+            print("📤 [Flask] distance_cm → 최신 distance_cm:", distance_cm)
             return jsonify({"success": True, "distance_cm": distance_cm})
+        else:
+            return jsonify({"success": False, "message": "No data found"}), 404
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+    
+@motor_control.route("/get_distance_10", methods=["GET"])
+def get_distance_10():
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # 🔄 최근 10개 가져오기
+        cursor.execute("SELECT distance_cm FROM distance ORDER BY created_at DESC LIMIT 10")
+        results = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if results:
+            # 📦 튜플 리스트 → 숫자 리스트로 변환
+            distance_list = [row[0] for row in results]
+            print("📤 [Flask] distance_cm_10 → 최신 10개:", distance_list)
+            return jsonify({"success": True, "distance_10cm": distance_list})
         else:
             return jsonify({"success": False, "message": "No data found"}), 404
 
