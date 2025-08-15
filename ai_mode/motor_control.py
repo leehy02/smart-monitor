@@ -75,11 +75,6 @@ def save_distance():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
-# @motor_control.route("/save_distance", methods=["GET"])
-# def save_distance_get():
-#     print(f"❌ 잘못된 GET 요청 감지 - IP: {request.remote_addr}")
-#     return jsonify({"error": "GET method not allowed"}), 405
     
     
     
@@ -133,6 +128,31 @@ def get_pitch_10():
         return jsonify({"success": False, "error": str(e)}), 500
     
     
+@motor_control.route("/get_pitch_avg", methods=["GET"])
+def get_pitch_avg():
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # 🔄 최근 10개의 pitch_angle 평균 구하기
+        cursor.execute("SELECT AVG(pitch_angle) FROM (SELECT pitch_angle FROM pitch ORDER BY created_at DESC LIMIT 10) AS recent_pitch")
+        result = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if result and result[0] is not None:
+            avg_pitch = int(result[0])  # 정수형으로 변환 (소수점 버림)
+            print("📤 [Flask] get_pitch_avg → 최근 10개 평균 pitch_angle:", avg_pitch)
+            return jsonify({"success": True, "avg_pitch_angle": avg_pitch})
+        else:
+            return jsonify({"success": False, "message": "No data found"}), 404
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+
+    
     
     
 @motor_control.route("/get_distance",methods=["GET"])
@@ -176,6 +196,29 @@ def get_distance_10():
             distance_list = [row[0] for row in results]
             print("📤 [Flask] distance_cm_10 → 최신 10개:", distance_list)
             return jsonify({"success": True, "distance_10cm": distance_list})
+        else:
+            return jsonify({"success": False, "message": "No data found"}), 404
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@motor_control.route("/get_distance_avg", methods=["GET"])
+def get_distance_avg():
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # 🔄 최근 10개의 distance_cm 평균 구하기
+        cursor.execute("SELECT AVG(distance_cm) FROM (SELECT distance_cm FROM distance ORDER BY created_at DESC LIMIT 10) AS recent_distance")
+        result = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if result and result[0] is not None:
+            avg_distance = int(result[0])  # 정수형으로 변환 (소수점 버림)
+            print("📤 [Flask] get_distance_avg → 최근 10개 평균 distance_cm:", avg_distance)
+            return jsonify({"success": True, "avg_distance_cm": avg_distance})
         else:
             return jsonify({"success": False, "message": "No data found"}), 404
 
