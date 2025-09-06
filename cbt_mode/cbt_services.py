@@ -25,7 +25,6 @@ def llm_call(system_prompt: str, context_text: str) -> str:
     return s
 
 def llm_call_json(system_prompt: str, user_payload: str) -> dict:
-    """JSON만 받는 콜 (1회 보정 재시도)"""
     out = client.chat.completions.create(
         model=MODEL, temperature=TEMPERATURE,
         messages=[
@@ -33,6 +32,7 @@ def llm_call_json(system_prompt: str, user_payload: str) -> dict:
             {"role": "user", "content": user_payload},
         ],
     ).choices[0].message.content
+
     try:
         return json.loads(out)
     except Exception:
@@ -44,7 +44,12 @@ def llm_call_json(system_prompt: str, user_payload: str) -> dict:
                 {"role": "user", "content": user_payload},
             ],
         ).choices[0].message.content
-        return json.loads(out2)
+        try:
+            return json.loads(out2)
+        except Exception:
+            # ✅ 기본 fallback
+            return []
+
 
 def analyze_distortions_from_autos(auto_text: str, allowed_keys: list, distortion_json_prompt: str) -> dict:
     """
