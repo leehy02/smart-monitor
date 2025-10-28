@@ -1,5 +1,5 @@
 from flask import Blueprint, request, render_template, make_response
-from data_save.t_data import save_summary_to_db
+from data_save.t_data import save_sessions, save_summary_report, save_users, save_plans, save_emotions, save_thoughts, save_distortions
 import json
 
 # 프롬프트/초기메시지
@@ -192,17 +192,63 @@ def index():
         # 저장 or 미저장 안내
         if user_input == "종료":
             try:
-                save_summary_to_db(
-                    event_text=background or "",
-                    emotion_text=emotion_change or "",
-                    auto_text=automatic_thought or "",
-                    distortion_json=json.dumps(distortion_map, ensure_ascii=False),
-                    alternative_text=alternative_thought or "",
-                    plan_text=plan_recommendation or "",
-                    goal_text=improvement_goal or "",
+                # 1️⃣ 유저 저장 후 user_id 확보
+                user_id = save_users(
+                    user_name=user_name or "",
+                    user_age=user_age or 0,
+                    user_gender=user_gender or "Others"
                 )
+
+                # 2️⃣ 세션 저장 후 session_id 확보
+                if user_id:
+                    session_id = save_sessions(user_id)
+
+                    # 3️⃣ 요약 리포트 저장 (세션에 연결)
+                    if session_id:
+                        save_summary_report(
+                            session_id=session_id,  # ⭐ FK 연결
+                            background=background or "",
+                            emotion_change=emotion_change or "",
+                            automatic_thought=automatic_thought or "",
+                            alternative_thought=alternative_thought or "",
+                            cognitive_distortion_summary=cognitive_distortion_summary or "",
+                            plan_recommendation=plan_recommendation or "",
+                            improvement_goal=improvement_goal or ""
+                        )
+                        
+                        for plan in plan_text_list:
+                            plan = plan.rstrip(".")
+                            save_plans(
+                            session_id=session_id,
+                            plan_text=plan or "",
+                            is_completed=False
+                        )
+                            
+                        for name, score, div in zip(emotion_name, emotion_score, division):
+                            save_emotions(
+                                session_id=session_id,
+                                emotion_name=name,
+                                emotion_score=score,
+                                division=div
+                            )
+                            
+                        for name, cnt in zip(distortion_name, count):
+                            save_distortions(
+                                session_id=session_id,
+                                distortion_name=name or "",
+                                count=cnt or 0
+                            )
+                            
+                        save_thoughts(
+                            session_id=session_id,
+                            automatic_thought=automatic_thought or "",
+                            automatic_analysis=automatic_analysis or "",
+                            alternative_thought=alternative_thought or "",
+                            alternative_analysis=alternative_analysis or ""
+                        )
+                            
             except Exception as e:
-                print(f"[WARN] save_summary_to_db failed: {e}")
+                print(f"[WARN] DB 저장 프로세스 failed: {e}")
 
             # 저장 데이터 확인용 출력문
             print()
@@ -211,6 +257,8 @@ def index():
             print(plan_text_list, "\n")
             print(distortion_name, count, "\n", automatic_analysis, "\n", alternative_analysis, "\n")
             print(emotion_name, emotion_score, division, "\n")
+            
+            user_name, user_age, user_gender = "", 0, ""
 
         end_msg = (
             "✅ 상담 종료. 금일 상담 내역이 성공적으로 저장되었어요! 아래에서 요약과 분석 내용을 확인해주세요. 앱에서는 더 자세한 내용을 조회할 수 있어요😊 "
