@@ -268,3 +268,62 @@ def get_latest_thoughts_report():
                 conn.close()
         except:
             pass
+        
+        
+        
+
+@cbt_api.route("/plans_report", methods=["GET","POST"], strict_slashes=False)
+def get_latest_plans_report():
+    conn = None
+    cursor = None
+    try:
+        conn = mysql.connector.connect(
+            host="cbt-dev-one.c0f6cyka4oe1.us-east-1.rds.amazonaws.com",
+            user="admin",
+            password=os.getenv("DB_PASSWORD"),
+            database="cbt_system"
+        )
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT
+                s.session_id,
+                s.session_datetime,
+                p.plan_id,
+                p.plan_text,
+                p.is_completed
+            FROM cbt_sessions AS s
+            JOIN cbt_plans AS p
+            ON p.session_id = s.session_id
+            WHERE s.session_id = (
+                SELECT s2.session_id
+                FROM cbt_sessions AS s2
+                ORDER BY s2.session_datetime DESC
+                LIMIT 1
+            )
+            ORDER BY p.plan_id
+        """)
+
+        rows = cursor.fetchall()
+
+        if not rows:
+            return jsonify({"status": "not_found", "message": "사용자 정보가 없습니다."}), 404
+        if "created_at" in rows:
+            del rows["created_at"]
+
+        print(rows)
+        
+        return jsonify(rows)
+
+    except Exception as e:
+        print("❌ /plans_report 에러:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+        except:
+            pass
