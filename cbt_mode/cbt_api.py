@@ -1,5 +1,5 @@
 # routes/cbt_api.py
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 import mysql.connector
 from dotenv import load_dotenv
 import os
@@ -272,7 +272,7 @@ def get_latest_thoughts_report():
         
         
 
-@cbt_api.route("/plans_report", methods=["GET","POST"], strict_slashes=False)
+@cbt_api.route("/plans_report", methods=["GET", "POST"], strict_slashes=False)
 def get_latest_plans_report():
     conn = None
     cursor = None
@@ -285,35 +285,80 @@ def get_latest_plans_report():
         )
         cursor = conn.cursor(dictionary=True)
 
-        cursor.execute("""
-            SELECT
-                s.session_id,
-                s.session_datetime,
-                p.plan_id,
-                p.plan_text,
-                p.is_completed
-            FROM cbt_sessions AS s
-            JOIN cbt_plans AS p
-            ON p.session_id = s.session_id
-            WHERE s.session_id = (
-                SELECT s2.session_id
-                FROM cbt_sessions AS s2
-                ORDER BY s2.session_datetime DESC
-                LIMIT 1
-            )
-            ORDER BY p.plan_id
-        """)
+        # ---------------------------
+        # GET: 최신 세션의 계획 리스트 반환
+        # ---------------------------
+        if request.method == "GET":
+            cursor.execute("""
+                SELECT
+                    s.session_id,
+                    s.session_datetime,
+                    p.plan_id,
+                    p.plan_text,
+                    p.is_completed
+                FROM cbt_sessions AS s
+                JOIN cbt_plans AS p
+                  ON p.session_id = s.session_id
+                WHERE s.session_id = (
+                    SELECT s2.session_id
+                    FROM cbt_sessions AS s2
+                    ORDER BY s2.session_datetime DESC
+                    LIMIT 1
+                )
+                ORDER BY p.plan_id
+            """)
+            rows = cursor.fetchall()
 
-        rows = cursor.fetchall()
+            if not rows:
+                return jsonify({"status": "not_found", "message": "사용자 정보가 없습니다."}), 404
 
-        if not rows:
-            return jsonify({"status": "not_found", "message": "사용자 정보가 없습니다."}), 404
-        if "created_at" in rows:
-            del rows["created_at"]
+            # 혹시 행에 created_at 같은 불필요 컬럼이 있다면 제거
+            for r in rows:
+                r.pop("created_at", None)
 
-        print(rows)
-        
-        return jsonify(rows)
+            return jsonify(rows), 200
+
+        # ---------------------------
+        # POST: 체크박스 완료 여부 업데이트
+        # ---------------------------
+        data = request.get_json(force=True) or {}
+        plan_id = data.get("plan_id")
+        is_completed_raw = data.get("is_completed")
+
+        if plan_id is None:
+            return jsonify({"status": "error", "message": "plan_id가 필요합니다."}), 400
+
+        # 다양한 입력을 0/1로 안전 변환
+        def to_int01(v):
+            if isinstance(v, bool):
+                return 1 if v else 0
+            try:
+                # "1","0","true","false" 등 처리
+                if isinstance(v, str):
+                    low = v.strip().lower()
+                    if low in ("true", "t", "yes", "y", "1"):
+                        return 1
+                    if low in ("false", "f", "no", "n", "0"):
+                        return 0
+                return 1 if int(v) == 1 else 0
+            except Exception:
+                return 0
+
+        is_completed = to_int01(is_completed_raw)
+
+        cursor.execute(
+            "UPDATE cbt_plans SET is_completed=%s WHERE plan_id=%s",
+            (is_completed, int(plan_id))
+        )
+        conn.commit()
+        updated = cursor.rowcount  # 1이면 정상 업데이트
+
+        return jsonify({
+            "status": "ok" if updated == 1 else "noop",
+            "plan_id": int(plan_id),
+            "is_completed": is_completed,
+            "updated": updated
+        }), 200
 
     except Exception as e:
         print("❌ /plans_report 에러:", e)
